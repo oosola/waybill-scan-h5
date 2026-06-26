@@ -330,40 +330,6 @@ $('testConfigBtn').onclick = async () => {
   }
 };
 
-// 测试图床 Worker 端点(一键诊断)
-$('testImageHostBtn').onclick = async () => {
-  const btn = $('testImageHostBtn');
-  const orig = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '测试中…';
-  const lines = [];
-  // 1) 测试 /health
-  try {
-    const r = await fetch(IMAGE_RELAY_URL.replace('/upload','/health'));
-    lines.push('① /health → HTTP ' + r.status);
-    if (r.ok) lines.push('   响应: ' + (await r.text()).slice(0, 100));
-  } catch (e) {
-    lines.push('① /health → 失败: ' + e.message);
-    lines.push('   ⚠️ 浏览器连不到 Worker,可能是网络/防火墙问题');
-  }
-  // 2) 测试 /upload (1x1 png)
-  try {
-    const r = await fetch(IMAGE_RELAY_URL, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='})
-    });
-    lines.push('② /upload → HTTP ' + r.status);
-    if (r.ok) lines.push('   响应: ' + (await r.text()).slice(0, 200));
-    else lines.push('   响应: ' + (await r.text()).slice(0, 200));
-  } catch (e) {
-    lines.push('② /upload → 失败: ' + e.message);
-  }
-  alert(lines.join('\n'));
-  btn.disabled = false;
-  btn.textContent = orig;
-};
-
 // ============ 图片选择(简化版) ============
 function loadFileToSlot(idx, f){
   if (!f) return;
