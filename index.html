@@ -31,6 +31,10 @@
   .url-row.hidden{display:none}
   .link-btn{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:4px 0;text-align:left;text-decoration:underline}
   .url-input{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;box-sizing:border-box}
+  .history-list{max-height:400px;overflow-y:auto;font-size:12px}
+  .history-item{padding:6px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .history-item a{color:var(--accent);text-decoration:none;word-break:break-all;flex:1;font-family:monospace}
+  .history-item .meta{color:var(--muted);font-size:10px;white-space:nowrap}
   .slot{border:2px dashed var(--border);border-radius:10px;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;cursor:pointer;overflow:hidden;position:relative;background:#fafbff}
   .slot.has-image{border-style:solid;border-color:var(--success)}
   .slot img{width:100%;height:100%;object-fit:cover}
@@ -128,6 +132,16 @@
     <div class="actions">
       <button id="parseBtn" disabled>② AI 解析并添加</button>
       <button class="secondary" id="clearImagesBtn">清空图片</button>
+      <button class="secondary" id="historyBtn">📜 图床历史</button>
+    </div>
+  </div>
+
+  <div class="card" id="historyCard" hidden>
+    <h2>📜 图床上传历史</h2>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">记录过去 30 天上传到 catbox/sm.ms 的图片。点 URL 在新标签打开,然后到图床网页版删除。</div>
+    <div id="historyList" class="history-list">加载中…</div>
+    <div class="actions" style="margin-top:10px">
+      <button class="secondary" id="closeHistoryBtn">关闭</button>
     </div>
   </div>
 
@@ -353,6 +367,32 @@ function clearSlot(idx){
 }
 bindSlot(0); bindSlot(1);
 $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
+
+// ============ 图床历史 ============
+$('historyBtn').onclick = loadHistory;
+$('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
+async function loadHistory(){
+  $('historyCard').hidden = false;
+  $('historyList').textContent = '加载中…';
+  try {
+    const res = await fetch(IMAGE_RELAY_URL.replace('/upload','/history'));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    if (!j.items || j.items.length === 0) {
+      $('historyList').innerHTML = '<div class="muted" style="padding:8px">还没有上传记录</div>';
+      return;
+    }
+    $('historyList').innerHTML = j.items.map(it => {
+      const time = new Date(it.ts).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return `<div class="history-item">
+        <a href="${it.url}" target="_blank" rel="noopener">${it.url.replace(/^https?:\/\//,'').slice(0,50)}…</a>
+        <span class="meta">${it.source} · ${time}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    $('historyList').innerHTML = '<div style="color:#c00;padding:8px">加载失败:' + e.message + '</div>';
+  }
+}
 
 // ============ AI 解析 ============
 const SYSTEM_PROMPT = `你是快递单 OCR 助手。用户给你两张中国快递面单图片(同一票货的两张面单)。
