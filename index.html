@@ -213,8 +213,15 @@ $('testConfigBtn').onclick = async () => {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
       body: JSON.stringify({
         model: cfg.model,
-        messages: [{ role: 'user', content: '回复 OK 两个字符即可,不要其他内容。' }],
-        max_tokens: 10
+        // 用 1x1 透明 PNG + 文字,兼容所有视觉模型(智谱 GLM-4V/Qwen-VL/gpt-4o/gemini 等)
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: '这张图是什么颜色?只回一个词。' },
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=' } }
+          ]
+        }],
+        max_tokens: 20
       })
     });
     const j = await res.json().catch(() => ({}));
@@ -310,8 +317,8 @@ async function callAI(){
       model: cfg.model,
       messages: [{ role:'user', content }],
       temperature: 0,
-      max_tokens: 800,
-      response_format: { type:'json_object' }
+      max_tokens: 800
+      // 注意:不要加 response_format: { type:'json_object' },智谱/通义/Qwen 等不兼容,会报 1210
     })
   });
   if (!res.ok){
