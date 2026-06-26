@@ -27,6 +27,10 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
   .card h2{margin:0 0 12px;font-size:15px;font-weight:600}
   .picker{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .url-row{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;margin:-4px 0 0 0}
+  .url-row.hidden{display:none}
+  .link-btn{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:4px 0;text-align:left;text-decoration:underline}
+  .url-input{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;box-sizing:border-box}
   .slot{border:2px dashed var(--border);border-radius:10px;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;cursor:pointer;overflow:hidden;position:relative;background:#fafbff}
   .slot.has-image{border-style:solid;border-color:var(--success)}
   .slot img{width:100%;height:100%;object-fit:cover}
@@ -107,11 +111,19 @@
         <span class="label">第 1 张</span>
         <span class="placeholder">点击拍照/选图</span>
       </label>
+      <div class="url-row" id="urlRow0">
+        <button class="link-btn" type="button" onclick="toggleUrlMode(0)">📋 改用图片 URL</button>
+        <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url0" hidden>
+      </div>
       <label class="slot" id="slot1">
         <input type="file" accept="image/*" hidden id="file1">
         <span class="label">第 2 张</span>
         <span class="placeholder">点击拍照/选图</span>
       </label>
+      <div class="url-row" id="urlRow1">
+        <button class="link-btn" type="button" onclick="toggleUrlMode(1)">📋 改用图片 URL</button>
+        <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url1" hidden>
+      </div>
     </div>
     <div class="actions">
       <button id="parseBtn" disabled>② AI 解析并添加</button>
@@ -155,6 +167,66 @@ const STORAGE_KEY = 'waybill_records_v1';
 const CONFIG_KEY  = 'waybill_config_v1';
 let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
+let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
+let imageMode = [0, 0];    // 0 = 上传(base64),1 = URL
+const cfg_imageHostEnabled = false; // 图床中转已禁(/upload 端点需要 Pages Function,本项目是 Workers)
+
+// ============ URL 模式切换 ============
+function toggleUrlMode(idx){
+  const row = $('urlRow'+idx);
+  const btn = row.querySelector('.link-btn');
+  const input = $('url'+idx);
+  if (imageMode[idx] === 0){
+    // 切到 URL 模式:显示输入框
+    imageMode[idx] = 1;
+    images[idx] = null;
+    input.hidden = false;
+    row.classList.remove('hidden');
+    btn.textContent = '↩️ 改回上传';
+    input.oninput = () => {
+      imageUrls[idx] = input.value.trim();
+      if (imageUrls[idx]) showUrlPreview(idx, imageUrls[idx]);
+      updateParseBtn();
+    };
+    input.focus();
+  } else {
+    // 切回上传模式
+    imageMode[idx] = 0;
+    imageUrls[idx] = '';
+    input.hidden = true;
+    input.value = '';
+    btn.textContent = '📋 改用图片 URL';
+    clearSlot(idx);
+  }
+  updateParseBtn();
+}
+function showUrlPreview(idx, url){
+  const slot = $('slot'+idx);
+  slot.classList.add('has-image');
+  let img = slot.querySelector('img');
+  let lbl = slot.querySelector('.label');
+  if (!img){
+    img = document.createElement('img');
+    slot.insertBefore(img, lbl.nextSibling);
+  }
+  img.src = url;
+  let ph = slot.querySelector('.placeholder');
+  if (ph) ph.style.display = 'none';
+  // 加 X 删除按钮
+  let rm = slot.querySelector('.remove');
+  if (!rm){
+    rm = document.createElement('button');
+    rm.className = 'remove';
+    rm.textContent = '×';
+    rm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
+    slot.appendChild(rm);
+  }
+}
+function updateParseBtn(){
+  const ready = (imageMode[0] === 1 ? imageUrls[0] : images[0]) &&
+                (imageMode[1] === 1 ? imageUrls[1] : images[1]);
+  $('parseBtn').disabled = !ready;
+}
 
 // ============ DOM ============
 const $ = (id) => document.getElementById(id);
@@ -262,20 +334,22 @@ function bindSlot(idx){
         btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
         slot.appendChild(btn);
       }
-      $('parseBtn').disabled = !(images[0] && images[1]);
+      updateParseBtn();
     };
     reader.readAsDataURL(f);
   });
 }
 function clearSlot(idx){
   images[idx] = null;
+  imageUrls[idx] = '';
+  const input = $('url'+idx); if (input) input.value = '';
   const slot = $('slot'+idx);
   slot.classList.remove('has-image');
   const img = slot.querySelector('img'); if (img) img.remove();
   const rm  = slot.querySelector('.remove'); if (rm) rm.remove();
   const ph  = slot.querySelector('.placeholder'); if (ph) ph.style.display = '';
   $('file'+idx).value = '';
-  $('parseBtn').disabled = !(images[0] && images[1]);
+  updateParseBtn();
 }
 bindSlot(0); bindSlot(1);
 $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
@@ -317,21 +391,35 @@ async function uploadToImageHost(base64DataUrl, idx){
   return j.url;
 }
 
+async function getImageSource(idx){
+  if (imageMode[idx] === 1) {
+    return imageUrls[idx];  // 用户手动输入的 URL
+  }
+  // 上传模式:尝试图床中转(可能被 CORS 拒)
+  if (cfg_imageHostEnabled) {
+    try {
+      return await uploadToImageHost(images[idx], idx);
+    } catch (e) {
+      console.warn('图床中转失败:', e);
+      throw new Error('图床上传失败(CORS 限)。请用 📋 改用图片 URL 模式,手动输入图床链接。');
+    }
+  }
+  return images[idx]; // 直接给 base64(部分模型如 glm-4v-plus 支持)
+}
+
 async function callAI(){
   const cfg = saveConfig();
   if (!cfg.apiKey){ toast('请先配置 API Key'); $('settingsCard').open = true; return null; }
 
-  // 先并行上传两张图(智谱 GLM-4V-Flash 不支持 base64,需 URL)
-  toast('⏳ 上传图片到图床…');
-  const [url0, url1] = await Promise.all([
-    uploadToImageHost(images[0], 0),
-    uploadToImageHost(images[1], 1)
-  ]);
+  // 每个 slot 决定 source:URL 模式直接用 URL,上传模式尝试图床
+  toast('⏳ 准备图片…');
+  const src0 = await getImageSource(0);
+  const src1 = await getImageSource(1);
 
   const content = [
     { type:'text', text: SYSTEM_PROMPT },
-    { type:'image_url', image_url:{ url: url0 } },
-    { type:'image_url', image_url:{ url: url1 } }
+    { type:'image_url', image_url:{ url: src0 } },
+    { type:'image_url', image_url:{ url: src1 } }
   ];
 
   const res = await fetch(cfg.apiBase.replace(/\/+$/,'') + '/chat/completions', {
