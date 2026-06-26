@@ -104,10 +104,6 @@
       <div class="actions" style="margin-top:10px">
         <button id="saveConfigBtn" class="secondary" type="button">💾 保存配置</button>
         <button id="testConfigBtn" class="secondary" type="button">🔌 测试连接</button>
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px">
-          <input type="checkbox" id="autoUploadChk" style="margin:0">
-          海外网络才用
-        </label>
         <span id="configStatus" style="font-size:11px;color:var(--muted);align-self:center"></span>
       </div>
     </div>
@@ -191,7 +187,7 @@ let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
 let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
 let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
-// 自动图床上传模式 — 现在用同域 /upload(waybill-scan-h5.workers.dev),GFW 已放行
+// 自动图床模式 — 走独立 Worker (VPN 下可达)
 let cfg_imageHostEnabled = true;
 
 // ============ URL 模式切换 ============
@@ -294,13 +290,6 @@ $('saveConfigBtn').onclick = () => {
   });
 });
 // 测试连接(用最小请求验证 API 是否通)
-// checkbox 联动
-$('autoUploadChk').addEventListener('change', (e) => {
-  cfg_imageHostEnabled = e.target.checked;
-  toast(cfg_imageHostEnabled ? '已开启海外网络模式' : '已关闭自动图床(走手动 URL 模式)');
-  saveConfig();
-});
-
 $('testConfigBtn').onclick = async () => {
   const cfg = saveConfig();
   if (!cfg.apiKey){ toast('请先填 API Key'); return; }
@@ -483,8 +472,8 @@ const SYSTEM_PROMPT = `你是快递单 OCR 助手。用户给你两张中国快�
 6. 若某字段看不清,填 null`;
 
 // ============ 图床中转 ============
-// 用相对路径(同域 = waybill-scan-h5.workers.dev),跟 H5 同 IP 段,GFW 已放行
-const IMAGE_RELAY_URL = '/upload';
+// 用独立的 Worker (VPN 下可达,VPN 关闭则切手动 URL 模式)
+const IMAGE_RELAY_URL = 'https://waybill-image-relay.liuyongning137.workers.dev/upload';
 async function uploadToImageHost(base64DataUrl, idx){
   const res = await fetch(IMAGE_RELAY_URL, {
     method:'POST',
