@@ -62,7 +62,9 @@
   .settings input,.settings select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%}
   .settings label{display:block;margin-bottom:4px;color:var(--text);font-weight:500}
   .settings .row{margin-bottom:8px}
-  details summary{cursor:pointer;color:var(--muted);font-size:13px;padding:8px 0}
+  details{cursor:pointer}
+  details summary{cursor:pointer;color:var(--muted);font-size:13px;padding:8px 0;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;list-style:revert}
+  details summary::-webkit-details-marker{display:inline-block}
   .badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:500}
   .badge.省内{background:#d1fae5;color:#065f46}
   .badge.省外{background:#fee2e2;color:#991b1b}
@@ -247,6 +249,7 @@ function updateParseBtn(){
   const ready = (imageMode[0] === 1 ? imageUrls[0] : images[0]) &&
                 (imageMode[1] === 1 ? imageUrls[1] : images[1]);
   $('parseBtn').disabled = !ready;
+  console.log('[parseBtn]', 'ready=', !!ready, 'images[0]=', !!images[0], 'images[1]=', !!images[1], 'mode=', imageMode);
 }
 
 // ============ DOM ============
