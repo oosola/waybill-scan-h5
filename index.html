@@ -453,13 +453,17 @@ async function getImageSource(idx){
   if (imageMode[idx] === 1) {
     return imageUrls[idx];  // 用户手动输入的 URL
   }
-  // 上传模式:尝试图床中转(可能被 CORS 拒)
+  // 上传模式:通过 Worker 中转到图床
   if (cfg_imageHostEnabled) {
     try {
       return await uploadToImageHost(images[idx], idx);
     } catch (e) {
-      console.warn('图床中转失败:', e);
-      throw new Error('图床上传失败(CORS 限)。请用 📋 改用图片 URL 模式,手动输入图床链接。');
+      console.error('图床中转失败:', e);
+      // 显示真实错误,不要瞎猜
+      const hint = (e.message || '').includes('Failed to fetch')
+        ? '\n(可能是网络/防火墙,试试用 📋 改用图片 URL 模式)'
+        : '';
+      throw new Error('图床中转失败: ' + (e.message || e) + hint);
     }
   }
   return images[idx]; // 直接给 base64(部分模型如 glm-4v-plus 支持)
