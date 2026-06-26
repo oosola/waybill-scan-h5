@@ -88,8 +88,12 @@
         <input id="model" placeholder="gpt-4o / qwen-vl-max / gemini-2.0-flash" value="gpt-4o">
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:6px">
-        ⚠️ API Key 仅保存在你本浏览器 localStorage,不上传任何服务器。
-        推荐用支持视觉的模型(gpt-4o / qwen-vl-max / gemini-2.0-flash / claude-sonnet-4 等)。
+        ⚠️ API Key 仅保存在你本浏览器 localStorage,不上传任何服务器。<br>
+        推荐用支持视觉的模型(glm-4v-flash / qwen-vl-max / gemini-2.0-flash / gpt-4o / claude-sonnet-4 等)。
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="saveConfigBtn" class="secondary" type="button">💾 保存配置</button>
+        <span id="configStatus" style="font-size:11px;color:var(--muted);align-self:center"></span>
       </div>
     </div>
   </details>
@@ -171,6 +175,27 @@ const saveConfig = () => {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
   return cfg;
 };
+const showConfigStatus = (msg) => {
+  const el = $('configStatus');
+  if (!el) return;
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 2000);
+};
+// 显式保存按钮
+$('saveConfigBtn').onclick = () => {
+  saveConfig();
+  toast('配置已保存');
+  showConfigStatus('✓ 已保存');
+};
+// 输入框失焦自动保存(防止用户没点保存就关页面)
+['apiBase','apiKey','model'].forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener('blur', () => {
+    saveConfig();
+    showConfigStatus('✓ 自动保存');
+  });
+});
 
 // ============ 图片选择 ============
 function bindSlot(idx){
