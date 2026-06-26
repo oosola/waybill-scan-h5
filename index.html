@@ -130,6 +130,8 @@
       </div>
     </div>
     <div class="actions">
+      <input type="file" accept="image/*" hidden id="fileBoth" multiple>
+      <button id="bothBtn" class="secondary" type="button">📷 一次选两张(自动分配)</button>
       <button id="parseBtn" disabled>② AI 解析并添加</button>
       <button class="secondary" id="clearImagesBtn">清空图片</button>
       <button class="secondary" id="historyBtn">📜 图床历史</button>
@@ -325,34 +327,46 @@ $('testConfigBtn').onclick = async () => {
 };
 
 // ============ 图片选择 ============
-function bindSlot(idx){
+function loadFileToSlot(idx, f){
+  if (!f) return;
+  // 如果该 slot 在 URL 模式,先切回 upload 模式
+  if (imageMode[idx] === 1) toggleUrlMode(idx);
   const slot = $('slot'+idx);
-  const file = $('file'+idx);
-  file.addEventListener('change', (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      images[idx] = ev.target.result;
-      slot.classList.add('has-image');
-      let img = slot.querySelector('img');
-      let lbl = slot.querySelector('.label');
-      let ph  = slot.querySelector('.placeholder');
-      if (!img){ img = document.createElement('img'); slot.insertBefore(img, lbl.nextSibling); }
-      img.src = images[idx];
-      if (ph) ph.style.display = 'none';
-      if (!slot.querySelector('.remove')){
-        const btn = document.createElement('button');
-        btn.className = 'remove';
-        btn.textContent = '×';
-        btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
-        slot.appendChild(btn);
-      }
-      updateParseBtn();
-    };
-    reader.readAsDataURL(f);
-  });
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    images[idx] = ev.target.result;
+    slot.classList.add('has-image');
+    let img = slot.querySelector('img');
+    let lbl = slot.querySelector('.label');
+    let ph  = slot.querySelector('.placeholder');
+    if (!img){ img = document.createElement('img'); slot.insertBefore(img, lbl.nextSibling); }
+    img.src = images[idx];
+    if (ph) ph.style.display = 'none';
+    if (!slot.querySelector('.remove')){
+      const btn = document.createElement('button');
+      btn.className = 'remove';
+      btn.textContent = '×';
+      btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
+      slot.appendChild(btn);
+    }
+    updateParseBtn();
+  };
+  reader.readAsDataURL(f);
 }
+function bindSlot(idx){
+  const file = $('file'+idx);
+  file.addEventListener('change', (e) => loadFileToSlot(idx, e.target.files[0]));
+}
+// 一次选两张
+$('bothBtn').onclick = () => $('fileBoth').click();
+$('fileBoth').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  if (files.length === 0) return;
+  if (files.length > 2) toast('选了 ' + files.length + ' 张,只取前两张');
+  loadFileToSlot(0, files[0]);
+  loadFileToSlot(1, files[1]);
+  e.target.value = ''; // 允许再次选同样的图
+});
 function clearSlot(idx){
   images[idx] = null;
   imageUrls[idx] = '';
