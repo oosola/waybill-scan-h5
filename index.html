@@ -93,6 +93,7 @@
       </div>
       <div class="actions" style="margin-top:10px">
         <button id="saveConfigBtn" class="secondary" type="button">💾 保存配置</button>
+        <button id="testConfigBtn" class="secondary" type="button">🔌 测试连接</button>
         <span id="configStatus" style="font-size:11px;color:var(--muted);align-self:center"></span>
       </div>
     </div>
@@ -196,6 +197,39 @@ $('saveConfigBtn').onclick = () => {
     showConfigStatus('✓ 自动保存');
   });
 });
+// 测试连接(用最小请求验证 API 是否通)
+$('testConfigBtn').onclick = async () => {
+  const cfg = saveConfig();
+  if (!cfg.apiKey){ toast('请先填 API Key'); return; }
+  if (!cfg.model){ toast('请先填模型名'); return; }
+  const btn = $('testConfigBtn');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '测试中…';
+  showConfigStatus('⏳ 测试中…');
+  try {
+    const res = await fetch(cfg.apiBase.replace(/\/+$/,'') + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
+      body: JSON.stringify({
+        model: cfg.model,
+        messages: [{ role: 'user', content: '回复 OK 两个字符即可,不要其他内容。' }],
+        max_tokens: 10
+      })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error?.message || j.message || `HTTP ${res.status}`);
+    const reply = (j.choices?.[0]?.message?.content || '').trim() || '(空响应)';
+    toast('✓ 连接成功');
+    showConfigStatus('✓ 成功 · 回复: ' + reply.slice(0, 30));
+  } catch (e) {
+    toast('✗ 失败: ' + e.message);
+    showConfigStatus('✗ ' + e.message.slice(0, 80));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+};
 
 // ============ 图片选择 ============
 function bindSlot(idx){
