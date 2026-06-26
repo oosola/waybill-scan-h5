@@ -404,11 +404,13 @@ function bindSlot(idx){
   file.addEventListener('change', (e) => loadFileToSlot(idx, e.target.files[0]));
 }
 // 一次选两张
-$('bothBtn').onclick = () => $('fileBoth').click();
 $('fileBoth').addEventListener('change', (e) => {
   const files = Array.from(e.target.files || []);
   if (files.length === 0) return;
   if (files.length > 2) toast('选了 ' + files.length + ' 张,只取前两张');
+  if (files.length < 2) {
+    toast('快递面单要 2 张图,只选了 1 张 — 再拍/选 1 张补到第 2 个框', 2500);
+  }
   loadFileToSlot(0, files[0]);
   loadFileToSlot(1, files[1]);
   e.target.value = ''; // 允许再次选同样的图
