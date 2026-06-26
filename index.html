@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>快递单整理</title>
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --card:#fff;
+    --border:#e6e8ef;
+    --text:#1d1f24;
+    --muted:#6b7280;
+    --accent:#3b82f6;
+    --accent-hover:#2563eb;
+    --success:#10b981;
+    --danger:#ef4444;
+    --shadow:0 2px 8px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  header h1{font-size:18px;margin:0}
+  header .count{font-size:13px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+  .card h2{margin:0 0 12px;font-size:15px;font-weight:600}
+  .picker{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .slot{border:2px dashed var(--border);border-radius:10px;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;cursor:pointer;overflow:hidden;position:relative;background:#fafbff}
+  .slot.has-image{border-style:solid;border-color:var(--success)}
+  .slot img{width:100%;height:100%;object-fit:cover}
+  .slot .remove{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;line-height:1;font-size:14px}
+  .slot .label{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  button{appearance:none;border:none;background:var(--accent);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s}
+  button:hover{background:var(--accent-hover)}
+  button:disabled{background:#cbd5e1;cursor:not-allowed}
+  button.secondary{background:#e5e7eb;color:var(--text)}
+  button.secondary:hover{background:#d1d5db}
+  button.danger{background:var(--danger)}
+  button.danger:hover{background:#dc2626}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+  th{background:#f9fafb;font-weight:600;color:var(--muted);position:sticky;top:0;font-size:12px}
+  td.num{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  .table-scroll{overflow-x:auto;max-height:60vh;overflow-y:auto}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px}
+  .loading{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .settings{margin-bottom:12px;font-size:12px;color:var(--muted)}
+  .settings input,.settings select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%}
+  .settings label{display:block;margin-bottom:4px;color:var(--text);font-weight:500}
+  .settings .row{margin-bottom:8px}
+  details summary{cursor:pointer;color:var(--muted);font-size:13px;padding:8px 0}
+  .badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:500}
+  .badge.省内{background:#d1fae5;color:#065f46}
+  .badge.省外{background:#fee2e2;color:#991b1b}
+  @media (max-width:600px){
+    .picker{grid-template-columns:1fr 1fr;gap:8px}
+    .wrap{padding:12px}
+    th,td{padding:6px 4px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📦 快递单整理</h1>
+    <span class="count" id="count">已记录 0 条</span>
+  </header>
+
+  <details class="card" id="settingsCard">
+    <summary>⚙️ AI 配置(首次使用点开填一下)</summary>
+    <div class="settings" style="margin-top:12px">
+      <div class="row">
+        <label>API Base URL</label>
+        <input id="apiBase" placeholder="https://api.openai.com/v1" value="https://api.openai.com/v1">
+      </div>
+      <div class="row">
+        <label>API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-...">
+      </div>
+      <div class="row">
+        <label>模型名</label>
+        <input id="model" placeholder="gpt-4o / qwen-vl-max / gemini-2.0-flash" value="gpt-4o">
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">
+        ⚠️ API Key 仅保存在你本浏览器 localStorage,不上传任何服务器。
+        推荐用支持视觉的模型(gpt-4o / qwen-vl-max / gemini-2.0-flash / claude-sonnet-4 等)。
+      </div>
+    </div>
+  </details>
+
+  <div class="card">
+    <h2>① 上传两张面单</h2>
+    <div class="picker">
+      <label class="slot" id="slot0">
+        <input type="file" accept="image/*" capture="environment" hidden id="file0">
+        <span class="label">第 1 张</span>
+        <span class="placeholder">点击拍照/选图</span>
+      </label>
+      <label class="slot" id="slot1">
+        <input type="file" accept="image/*" capture="environment" hidden id="file1">
+        <span class="label">第 2 张</span>
+        <span class="placeholder">点击拍照/选图</span>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="parseBtn" disabled>② AI 解析并添加</button>
+      <button class="secondary" id="clearImagesBtn">清空图片</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ 已记录(<span id="countInline">0</span>)</h2>
+    <div class="table-scroll">
+      <table id="table">
+        <thead>
+          <tr>
+            <th>扫描日期</th>
+            <th>快递公司</th>
+            <th>品名</th>
+            <th>首张面单号(序号小)</th>
+            <th>末张面单号(序号大)</th>
+            <th>总数</th>
+            <th>省内/省外</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button class="secondary" id="exportCsvBtn">📥 导出 CSV</button>
+      <button class="secondary" id="copyBtn">📋 复制表格</button>
+      <button class="danger" id="resetBtn">🗑️ 清空全部</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ 状态 ============
+const STORAGE_KEY = 'waybill_records_v1';
+const CONFIG_KEY  = 'waybill_config_v1';
+let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let images = [null, null]; // base64 dataURL
+
+// ============ DOM ============
+const $ = (id) => document.getElementById(id);
+const toast = (msg, ms=1800) => {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), ms);
+};
+
+// ============ 配置 ============
+const saved = JSON.parse(localStorage.getItem(CONFIG_KEY) || '{}');
+if (saved.apiBase) $('apiBase').value = saved.apiBase;
+if (saved.apiKey)  $('apiKey').value  = saved.apiKey;
+if (saved.model)   $('model').value   = saved.model;
+const saveConfig = () => {
+  const cfg = { apiBase:$('apiBase').value.trim(), apiKey:$('apiKey').value.trim(), model:$('model').value.trim() };
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  return cfg;
+};
+
+// ============ 图片选择 ============
+function bindSlot(idx){
+  const slot = $('slot'+idx);
+  const file = $('file'+idx);
+  file.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      images[idx] = ev.target.result;
+      slot.classList.add('has-image');
+      let img = slot.querySelector('img');
+      let lbl = slot.querySelector('.label');
+      let ph  = slot.querySelector('.placeholder');
+      if (!img){ img = document.createElement('img'); slot.insertBefore(img, lbl.nextSibling); }
+      img.src = images[idx];
+      if (ph) ph.style.display = 'none';
+      if (!slot.querySelector('.remove')){
+        const btn = document.createElement('button');
+        btn.className = 'remove';
+        btn.textContent = '×';
+        btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
+        slot.appendChild(btn);
+      }
+      $('parseBtn').disabled = !(images[0] && images[1]);
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function clearSlot(idx){
+  images[idx] = null;
+  const slot = $('slot'+idx);
+  slot.classList.remove('has-image');
+  const img = slot.querySelector('img'); if (img) img.remove();
+  const rm  = slot.querySelector('.remove'); if (rm) rm.remove();
+  const ph  = slot.querySelector('.placeholder'); if (ph) ph.style.display = '';
+  $('file'+idx).value = '';
+  $('parseBtn').disabled = !(images[0] && images[1]);
+}
+bindSlot(0); bindSlot(1);
+$('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
+
+// ============ AI 解析 ============
+const SYSTEM_PROMPT = `你是快递单 OCR 助手。用户给你两张中国快递面单图片(同一票货的两张面单)。
+按以下 JSON 格式输出,严格 JSON,不要任何说明文字,不要 markdown 包裹,不要中文逗号:
+
+{
+  "carrier": "快递公司名(韵达速递/中通/顺丰/京东/快递100/极兔/圆通 等)",
+  "product": "品名(如 谷/非真空猫牙 500*1袋*1份、蜜蜂软件、文件 等)",
+  "first": { "tracking": "面单号", "serial": "序号如 1/495" },
+  "last":  { "tracking": "面单号", "serial": "序号如 495/495" },
+  "total": 495,
+  "receiver_province": "收件人省份,如 湖北、江西、广东 等"
+}
+
+关键规则:
+1. 序号位置 = 面单右下角(常写作 1/495、495/495 这种形式),**不要**误读右上角的小号(如 3/3)当总件数
+2. first = 两张里序号小的;last = 序号大的
+3. total = 取最大的分母(若不可见,写 null)
+4. receiver_province = 收件人地址里的省份,江西=省内,其他=省外
+5. 若某字段看不清,填 null`;
+
+async function callAI(){
+  const cfg = saveConfig();
+  if (!cfg.apiKey){ toast('请先配置 API Key'); $('settingsCard').open = true; return null; }
+
+  const content = [
+    { type:'text', text: SYSTEM_PROMPT },
+    { type:'image_url', image_url:{ url: images[0] } },
+    { type:'image_url', image_url:{ url: images[1] } }
+  ];
+
+  const res = await fetch(cfg.apiBase.replace(/\/+$/,'') + '/chat/completions', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+cfg.apiKey },
+    body: JSON.stringify({
+      model: cfg.model,
+      messages: [{ role:'user', content }],
+      temperature: 0,
+      max_tokens: 800,
+      response_format: { type:'json_object' }
+    })
+  });
+  if (!res.ok){
+    const err = await res.text();
+    throw new Error('API '+res.status+': '+err.slice(0,200));
+  }
+  const data = await res.json();
+  const txt = data.choices?.[0]?.message?.content || '';
+  // 兜底:剥 markdown 壳 + 找 JSON
+  const cleaned = txt.replace(/^```json?\s*/i,'').replace(/```\s*$/,'').trim();
+  try { return JSON.parse(cleaned); }
+  catch(e){
+    console.error('JSON 解析失败,原文:', txt);
+    throw new Error('AI 返回格式异常,请重试');
+  }
+}
+
+function parseResultToRow(r){
+  const today = new Date().toISOString().slice(0,10);
+  const inJiangxi = (r.receiver_province || '').includes('江西');
+  const region = inJiangxi ? '省内' : '省外';
+  const fmt = (o) => o && o.tracking ? `${o.tracking}${o.serial ? ' ('+o.serial+')' : ''}` : '—';
+  return {
+    date: today,
+    carrier: r.carrier || '未识别',
+    product: r.product || '未识别',
+    first: fmt(r.first),
+    last:  fmt(r.last),
+    total: r.total ?? '—',
+    region
+  };
+}
+
+$('parseBtn').onclick = async () => {
+  const btn = $('parseBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading"></span>解析中…';
+  try {
+    const result = await callAI();
+    if (!result) return;
+    const row = parseResultToRow(result);
+    records.push(row);
+    save();
+    render();
+    clearSlot(0); clearSlot(1);
+    toast('已添加 ✓');
+  } catch(e){
+    console.error(e);
+    toast(e.message || '解析失败');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '② AI 解析并添加';
+  }
+};
+
+// ============ 表格 ============
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function render(){
+  const tbody = $('tbody');
+  if (!records.length){
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">还没有记录。选两张面单图开始 ↓</td></tr>';
+  } else {
+    tbody.innerHTML = records.map((r,i) => `
+      <tr>
+        <td>${esc(r.date)}</td>
+        <td>${esc(r.carrier)}</td>
+        <td>${esc(r.product)}</td>
+        <td class="num">${esc(r.first)}</td>
+        <td class="num">${esc(r.last)}</td>
+        <td>${esc(String(r.total))}</td>
+        <td><span class="badge ${esc(r.region)}">${esc(r.region)}</span></td>
+        <td><button class="danger" style="padding:4px 8px;font-size:12px" data-i="${i}">删</button></td>
+      </tr>
+    `).join('');
+  }
+  $('count').textContent = `已记录 ${records.length} 条`;
+  $('countInline').textContent = records.length;
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+$('tbody').addEventListener('click', (e) => {
+  if (e.target.tagName === 'BUTTON' && e.target.dataset.i){
+    const i = +e.target.dataset.i;
+    if (confirm(`删除第 ${i+1} 条?`)){
+      records.splice(i,1); save(); render();
+    }
+  }
+});
+
+// ============ 导出 / 复制 ============
+$('exportCsvBtn').onclick = () => {
+  if (!records.length){ toast('还没有记录'); return; }
+  const headers = ['扫描日期','快递公司','品名','首张面单号(序号小)','末张面单号(序号大)','总数','省内/省外'];
+  const rows = records.map(r => [r.date,r.carrier,r.product,r.first,r.last,r.total,r.region]);
+  const csv = [headers, ...rows].map(row => row.map(c => {
+    const s = String(c ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  }).join(',')).join('\n');
+  // 加 BOM 让 Excel 正确识别 UTF-8
+  const blob = new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `快递单_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('已导出 CSV ✓');
+};
+
+$('copyBtn').onclick = async () => {
+  if (!records.length){ toast('还没有记录'); return; }
+  const md = [
+    '| 扫描日期 | 快递公司 | 品名 | 首张面单号(序号小) | 末张面单号(序号大) | 总数 | 省内/省外 |',
+    '|---|---|---|---|---|---|---|',
+    ...records.map(r => `| ${r.date} | ${r.carrier} | ${r.product} | ${r.first} | ${r.last} | ${r.total} | ${r.region} |`)
+  ].join('\n');
+  try {
+    await navigator.clipboard.writeText(md);
+    toast('已复制 Markdown 表格 ✓');
+  } catch(e){
+    toast('复制失败,请手动选择');
+  }
+};
+
+$('resetBtn').onclick = () => {
+  if (!records.length){ toast('已经是空的'); return; }
+  if (confirm(`清空全部 ${records.length} 条记录?`)){
+    records = []; save(); render(); toast('已清空');
+  }
+};
+
+// ============ 启动 ============
+render();
+</script>
+</body>
+</html>

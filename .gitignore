@@ -1,0 +1,19 @@
+# Node
+node_modules/
+package.json
+package-lock.json
+
+# Local deploy helpers (Cloudflare Direct Upload / Worker scripts)
+deploy.ps1
+hash.js
+worker-*.js
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets
+*.env
+.env.*
