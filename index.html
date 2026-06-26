@@ -364,10 +364,10 @@ $('testImageHostBtn').onclick = async () => {
   btn.textContent = orig;
 };
 
-// ============ 图片选择 ============
+// ============ 图片选择(简化版) ============
 function loadFileToSlot(idx, f){
   if (!f) return;
-  // 如果该 slot 在 URL 模式,先切回 upload 模式
+  // 如果该 slot 之前在 URL 模式,切回 upload 模式
   if (imageMode[idx] === 1) toggleUrlMode(idx);
   const slot = $('slot'+idx);
   const reader = new FileReader();
@@ -377,7 +377,10 @@ function loadFileToSlot(idx, f){
     let img = slot.querySelector('img');
     let lbl = slot.querySelector('.label');
     let ph  = slot.querySelector('.placeholder');
-    if (!img){ img = document.createElement('img'); slot.insertBefore(img, lbl.nextSibling); }
+    if (!img){
+      img = document.createElement('img');
+      slot.insertBefore(img, lbl.nextSibling);
+    }
     img.src = images[idx];
     if (ph) ph.style.display = 'none';
     if (!slot.querySelector('.remove')){
@@ -389,23 +392,25 @@ function loadFileToSlot(idx, f){
     }
     updateParseBtn();
   };
+  reader.onerror = () => { toast('读取失败:' + (reader.error ? reader.error.message : '未知')); };
   reader.readAsDataURL(f);
 }
+
 function bindSlot(idx){
-  const file = $('file'+idx);
-  file.addEventListener('change', (e) => loadFileToSlot(idx, e.target.files[0]));
+  const input = $('file'+idx);
+  input.addEventListener('change', (e) => {
+    loadFileToSlot(idx, e.target.files[0]);
+  });
 }
-// 一次选两张
+
+// 一次选两张(Android 多选 OK,iOS 限制)
 $('fileBoth').addEventListener('change', (e) => {
-  const files = Array.from(e.target.files || []);
-  if (files.length === 0) return;
-  if (files.length > 2) toast('选了 ' + files.length + ' 张,只取前两张');
-  if (files.length < 2) {
-    toast('快递面单要 2 张图,只选了 1 张 — 再拍/选 1 张补到第 2 个框', 2500);
-  }
-  loadFileToSlot(0, files[0]);
-  loadFileToSlot(1, files[1]);
-  e.target.value = ''; // 允许再次选同样的图
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+  console.log('[fileBoth] selected ' + files.length + ' files');
+  if (files[0]) loadFileToSlot(0, files[0]);
+  if (files[1]) loadFileToSlot(1, files[1]);
+  e.target.value = '';
 });
 function clearSlot(idx){
   images[idx] = null;
