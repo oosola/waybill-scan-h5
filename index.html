@@ -316,7 +316,8 @@ async function callAI(){
     body: JSON.stringify({
       model: cfg.model,
       messages: [{ role:'user', content }],
-      temperature: 0,
+      // 注意:智谱 GLM-4V 不接受 temperature=0,要用 0.01~1.0
+      temperature: 0.01,
       max_tokens: 800
       // 注意:不要加 response_format: { type:'json_object' },智谱/通义/Qwen 等不兼容,会报 1210
     })
