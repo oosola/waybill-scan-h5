@@ -1,0 +1,4 @@
+name = "waybill-scan-h5"
+main = "./_worker.js"
+compatibility_date = "2026-06-26"
+assets = { directory = ".", binding = "ASSETS" }
