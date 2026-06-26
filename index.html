@@ -187,8 +187,8 @@ let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
 let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
 let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
-// 自动图床模式 — 走独立 Worker (VPN 下可达)
-let cfg_imageHostEnabled = true;
+// 自动图床模式 — 默认关,用户改用 glm-4v-plus / qwen-vl-plus 这类支持 base64 的 model 时,直接走 base64 最稳
+let cfg_imageHostEnabled = false;
 
 // ============ URL 模式切换 ============
 function toggleUrlMode(idx){
@@ -498,22 +498,17 @@ async function getImageSource(idx){
   if (imageMode[idx] === 1) {
     return imageUrls[idx];  // 用户手动输入的 URL
   }
-  // 上传模式:通过 Worker 中转到图床
+  // 上传模式 + 自动图床开启 → 走 Worker 中转
   if (cfg_imageHostEnabled) {
     try {
       return await uploadToImageHost(images[idx], idx);
     } catch (e) {
       console.error('图床中转失败:', e);
-      // 国内环境大概率是网络问题,直接引导到手动模式
-      const msg = (e.message || String(e));
-      if (msg.includes('Failed to fetch')) {
-        throw new Error('自动图床连不上(你网络访问不到 workers.dev 域名)\n\n👉 请用 📋 改用图片 URL 模式,手机浏览器开 https://sm.ms 上传图后粘 URL 进来');
-      }
-      throw new Error('自动图床失败: ' + msg + '\n\n👉 可用 📋 改用图片 URL 模式手动填 URL');
+      throw new Error('图床中转失败: ' + (e.message || e) + '\n👉 可点 📋 改用图片 URL 模式手动填 URL');
     }
   }
-  // 上传模式但没开自动图床 — 提示用户
-  throw new Error('当前是上传模式但未开启自动图床\n\n👉 两个选择:\n  1. 勾上"海外网络才用"复选框试试自动图床\n  2. 点 📋 改用图片 URL,手机浏览器开 sm.ms 上传后粘 URL');
+  // 上传模式 + 自动图床关闭 → 直接用 base64(支持 base64 的模型如 glm-4v-plus / qwen-vl-plus 可用)
+  return images[idx];
 }
 
 async function callAI(){
