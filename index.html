@@ -187,8 +187,8 @@ let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
 let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
 let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
-// 自动图床模式 — 默认关,用户改用 glm-4v-plus / qwen-vl-plus 这类支持 base64 的 model 时,直接走 base64 最稳
-let cfg_imageHostEnabled = false;
+// 自动图床模式 — 开启后上传图自动中转到 catbox,glm-4v-flash(只接受 URL)能用
+let cfg_imageHostEnabled = true;
 
 // ============ URL 模式切换 ============
 function toggleUrlMode(idx){
