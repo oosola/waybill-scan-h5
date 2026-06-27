@@ -462,18 +462,18 @@ async function uploadToImageHost(base64DataUrl, idx){
 
 async function getImageSource(idx){
   if (imageMode[idx] === 1) {
-    return imageUrls[idx];  // 用户手动输入的 URL
+    return imageUrls[idx];
   }
-  // 上传模式 + 自动图床开启 → 走 Worker 中转
   if (cfg_imageHostEnabled) {
     try {
-      return await uploadToImageHost(images[idx], idx);
+      const result = await uploadToImageHost(images[idx], idx);
+      console.log('[upload success]', result.source, result.url);
+      return result.url;
     } catch (e) {
       console.error('图床中转失败:', e);
       throw new Error('图床中转失败: ' + (e.message || e) + '\n👉 可点 📋 改用图片 URL 模式手动填 URL');
     }
   }
-  // 上传模式 + 自动图床关闭 → 直接用 base64(支持 base64 的模型如 glm-4v-plus / qwen-vl-plus 可用)
   return images[idx];
 }
 
