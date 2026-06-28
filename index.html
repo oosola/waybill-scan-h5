@@ -120,6 +120,7 @@
       <div class="url-row" id="urlRow0">
         <button class="link-btn" type="button" onclick="toggleUrlMode(0)">📋 改用图片 URL</button>
         <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url0" hidden>
+        <button class="link-btn" type="button" onclick="window.open('https://sm.ms', '_blank')" hidden id="openSm0">📱 打开 sm.ms 上传</button>
       </div>
       <label class="slot" id="slot1">
         <input type="file" accept="image/*" hidden id="file1">
@@ -129,6 +130,7 @@
       <div class="url-row" id="urlRow1">
         <button class="link-btn" type="button" onclick="toggleUrlMode(1)">📋 改用图片 URL</button>
         <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url1" hidden>
+        <button class="link-btn" type="button" onclick="window.open('https://sm.ms', '_blank')" hidden id="openSm1">📱 打开 sm.ms 上传</button>
       </div>
     </div>
     <div class="actions">
@@ -187,19 +189,21 @@ let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
 let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
 let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
-// 自动图床模式 — 开启后上传图自动中转到 catbox,glm-4v-flash(只接受 URL)能用
-let cfg_imageHostEnabled = true;
+// 自动图床模式 — 默认关。Worker 中转在你网络下不稳定,手动 URL 模式最稳
+let cfg_imageHostEnabled = false;
 
 // ============ URL 模式切换 ============
 function toggleUrlMode(idx){
   const row = $('urlRow'+idx);
   const btn = row.querySelector('.link-btn');
   const input = $('url'+idx);
+  const openSm = $('openSm'+idx);
   if (imageMode[idx] === 0){
     // 切到 URL 模式:显示输入框
     imageMode[idx] = 1;
     images[idx] = null;
     input.hidden = false;
+    openSm.hidden = false;
     row.classList.remove('hidden');
     btn.textContent = '↩️ 改回上传';
     input.oninput = () => {
@@ -213,6 +217,7 @@ function toggleUrlMode(idx){
     imageMode[idx] = 0;
     imageUrls[idx] = '';
     input.hidden = true;
+    openSm.hidden = true;
     input.value = '';
     btn.textContent = '📋 改用图片 URL';
     clearSlot(idx);
