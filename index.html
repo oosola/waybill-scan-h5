@@ -535,6 +535,73 @@ function parseResultToRow(r){
   };
 }
 
+// 把错误翻译成人话 + 修复建议
+function explainError(e){
+  const raw = (e && e.message) || String(e);
+  const lower = raw.toLowerCase();
+
+  // ===== 网络层 =====
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
+    return '网络请求失败(浏览器拦截 / VPN 未开 / DNS 解析失败)\n👉 检查 VPN 是否全局,或在设置里关掉「使用图床中转」走 base64 直传';
+  }
+  if (/timeout|aborted/i.test(raw)) {
+    return '请求超时(网络太慢或被墙)\n👉 重试一次,或检查 VPN';
+  }
+  if (/cors|cross-origin/i.test(raw)) {
+    return '跨域被拦截(CORS)\n👉 apiBase 域名需支持 CORS,或换支持 CORS 的代理';
+  }
+
+  // ===== 图床中转失败 =====
+  if (/图床中转失败/.test(raw)) {
+    if (/Failed to fetch|timeout/i.test(raw)) {
+      return '图床中转失败: Worker 不通\n👉 可能 VPN 未开 / GFW 拦截了 *.workers.dev 子域名\n👉 临时方案:设置里关掉「使用图床中转」+ 改用支持 base64 的模型(如 glm-4v-plus)';
+    }
+    return '图床中转失败\n👉 检查 API/网络,或切到手动 URL 模式 📋';
+  }
+
+  // ===== AI API 状态码 =====
+  // 401: 鉴权失败
+  if (/\b401\b/.test(raw)) {
+    return 'API 鉴权失败 (401)\n👉 API Key 错了/过期了,回设置面板核对';
+  }
+  // 403: 权限/余额/区域
+  if (/\b403\b/.test(raw)) {
+    return 'API 拒绝访问 (403)\n👉 账号欠费 / 模型无权限 / 区域限制';
+  }
+  // 404: 路径错
+  if (/\b404\b/.test(raw)) {
+    return 'API 地址不存在 (404)\n👉 检查 apiBase 是否拼对(末尾不要带 /chat/completions)';
+  }
+  // 429: 限流
+  if (/\b429\b/.test(raw)) {
+    return '请求过快被限流 (429)\n👉 等几秒再试,或换付费套餐';
+  }
+  // 500/502/503/504
+  const srv = raw.match(/\b(500|502|503|504)\b/);
+  if (srv) {
+    return 'AI 服务端故障 ('+ srv[1] + ')\n👉 模型服务器炸了,稍等再试';
+  }
+  // 智谱特定 1210: 请求参数不合法
+  if (/1210|参数不合法|invalid.*param/i.test(raw)) {
+    return 'AI 请求格式不合法 (1210)\n👉 可能原因:① 用了不支持 base64 的模型(glm-4v-flash 必须传 URL);② 用了 response_format:json_object(智谱不兼容);③ 图片太大';
+  }
+  // 智谱特定 1113/账号欠费
+  if (/1113|余额|insufficient.*balance/i.test(raw)) {
+    return '账号余额不足\n👉 去智谱/OpenAI 后台充值';
+  }
+
+  // ===== 内容层 =====
+  if (/JSON 解析失败|返回格式异常/i.test(raw)) {
+    return 'AI 返回的不是 JSON\n👉 模型没按指令输出,可重试一次,或换更稳的模型';
+  }
+  if (/请先配置 API Key/i.test(raw)) {
+    return '还没填 API Key\n👉 点 ⚙ 设置填一下';
+  }
+
+  // 默认
+  return '解析失败:\n' + raw.slice(0, 300);
+}
+
 $('parseBtn').onclick = async () => {
   const btn = $('parseBtn');
   if (btn.disabled) return;
@@ -550,8 +617,8 @@ $('parseBtn').onclick = async () => {
     clearSlot(0); clearSlot(1);
     toast('已添加 ✓');
   } catch(e){
-    console.error(e);
-    toast(e.message || '解析失败');
+    console.error('[parseBtn]', e);
+    toast(explainError(e), 6000); // 长一点让用户看清
   } finally {
     btn.disabled = false;
     btn.innerHTML = '② AI 解析并添加';
