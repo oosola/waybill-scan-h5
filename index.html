@@ -486,10 +486,11 @@ async function callAI(){
   const src0 = await getImageSource(0);
   const src1 = await getImageSource(1);
 
+  // flash 期望 image_url 是 string 而不是 {url:string},两种都发一下做兼容
   const content = [
     { type:'text', text: SYSTEM_PROMPT },
-    { type:'image_url', image_url:{ url: src0 } },
-    { type:'image_url', image_url:{ url: src1 } }
+    { type:'image_url', image_url: src0 },
+    { type:'image_url', image_url: src1 }
   ];
 
   const res = await fetch(cfg.apiBase.replace(/\/+$/,'') + '/chat/completions', {
