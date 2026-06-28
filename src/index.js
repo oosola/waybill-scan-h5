@@ -1,7 +1,7 @@
 // 主 worker: 处理图床 API + serve H5 assets
 // 路由:
-//   POST /upload       -> 存 R2,返回 image URL
-//   GET  /image/<key>  -> 从 R2 读 image bytes
+//   POST /upload       -> 存 R2,返回 image URL (R2 signed URL,智谱国内可能能 fetch)
+//   GET  /image/<key>  -> 从 R2 读 image bytes (本地兜底)
 //   GET  /list         -> 列 R2 最近 20 个对象
 //   *                 -> serve H5 assets (index.html 等)
 
@@ -27,6 +27,7 @@ export default {
         service: 'waybill-scan-h5',
         r2_bound: !!env.WAYBILL_IMAGES,
         assets_bound: !!env.ASSETS,
+        account_id: env.R2_ACCOUNT_ID || '?',
       });
     }
 
@@ -83,11 +84,106 @@ async function handleUpload(request, env) {
       httpMetadata: { contentType: file.type || 'image/jpeg' },
     });
 
-    const imageUrl = `https://waybill-scan-h5.liuyongning137.workers.dev/image/${key}`;
-    return json({ url: imageUrl, source: 'r2-assets-worker', key });
+    // 试三种 URL 来源 (按优先级):
+    // 1) R2.dev public URL (如果 Dashboard 启用了 R2 Public Development URL,智谱能 fetch)
+    // 2) R2 cloudflarestorage signed URL (worker 生成,绕过 worker.dev GFW)
+    // 3) Worker /image/{key} URL (兜底,用户浏览器能访问但智谱可能 fetch 不到)
+    let imageUrl, source;
+    const r2DevUrl = `https://pub-waybill-images.r2.dev/${key}`;
+
+    // 先验证 R2.dev public URL 是否可用 (HEAD 请求 200 = 可用)
+    try {
+      const head = await fetch(r2DevUrl, { method: 'HEAD' });
+      if (head.ok) {
+        imageUrl = r2DevUrl;
+        source = 'r2-dev-public';
+      }
+    } catch (e) { /* R2.dev 没启用,fall through */ }
+
+    // 如果 R2.dev 不可用,生成 R2 signed URL (走 cloudflarestorage.com 域名)
+    if (!imageUrl && env.R2_ACCESS_KEY && env.R2_SECRET_KEY && env.R2_ACCOUNT_ID) {
+      try {
+        imageUrl = await generateSignedUrl(env, key);
+        source = 'r2-signed';
+      } catch (e) { /* 签名失败 */ }
+    }
+
+    // 最后兜底 worker /image URL
+    if (!imageUrl) {
+      imageUrl = `https://waybill-scan-h5.liuyongning137.workers.dev/image/${key}`;
+      source = 'worker-fallback';
+    }
+
+    return json({ url: imageUrl, source, key });
   } catch (e) {
     return json({ error: 'handler error: ' + (e.message || String(e)) }, 500);
   }
+}
+
+// 生成 R2 signed URL (AWS SigV4,15 分钟有效)
+async function generateSignedUrl(env, key) {
+  const endpoint = `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const bucket = 'waybill-images';
+  const accessKey = env.R2_ACCESS_KEY;
+  const secretKey = env.R2_SECRET_KEY;
+  const expiresIn = 900; // 15 分钟
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = `${dateStamp}/auto/s3/aws4_request`;
+  const credential = `${accessKey}/${credentialScope}`;
+
+  const host = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const canonicalUri = `/${bucket}/${encodeURI(key)}`;
+  const canonicalQuery = new URLSearchParams({
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expiresIn),
+    'X-Amz-SignedHeaders': 'host',
+  }).toString();
+
+  const canonicalRequest = [
+    'GET',
+    canonicalUri,
+    canonicalQuery,
+    `host:${host}\n`,
+    'host',
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join('\n');
+
+  const kDate = await hmac(`AWS4${secretKey}`, dateStamp);
+  const kRegion = await hmac(kDate, 'auto');
+  const kService = await hmac(kRegion, 's3');
+  const kSigning = await hmac(kService, 'aws4_request');
+  const signature = toHex(await hmac(kSigning, stringToSign));
+
+  return `${endpoint}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
+}
+
+async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return toHex(buf);
+}
+
+async function hmac(key, data) {
+  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+  const ck = await crypto.subtle.importKey(
+    'raw', k, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  return new Uint8Array(await crypto.subtle.sign('HMAC', ck, new TextEncoder().encode(data)));
+}
+
+function toHex(buf) {
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function handleGetImage(request, env, url) {
