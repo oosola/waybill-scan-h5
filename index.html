@@ -466,9 +466,9 @@ async function getImageSource(idx){
   }
   if (cfg_imageHostEnabled) {
     try {
-      const result = await uploadToImageHost(images[idx], idx);
-      console.log('[upload success]', result.source, result.url);
-      return result.url;
+      const url = await uploadToImageHost(images[idx], idx);
+      console.log('[upload success]', url);
+      return url;
     } catch (e) {
       console.error('图床中转失败:', e);
       throw new Error('图床中转失败: ' + (e.message || e) + '\n👉 可点 📋 改用图片 URL 模式手动填 URL');
