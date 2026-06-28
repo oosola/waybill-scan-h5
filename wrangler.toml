@@ -1,0 +1,14 @@
+name = "waybill-scan-h5"
+main = "src/index.js"
+compatibility_date = "2026-06-28"
+compatibility_flags = ["nodejs_compat"]
+
+# R2 bucket 绑定 — 图床存储
+[[r2_buckets]]
+binding = "WAYBILL_IMAGES"
+bucket_name = "waybill-images"
+
+# Static assets (H5 文件)
+[assets]
+directory = "./"
+binding = "ASSETS"
