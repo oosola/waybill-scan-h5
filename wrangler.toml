@@ -8,6 +8,12 @@ compatibility_flags = ["nodejs_compat"]
 binding = "WAYBILL_IMAGES"
 bucket_name = "waybill-images"
 
+# R2 token (用于生成 signed URL,智谱 fetch 兜底)
+[vars]
+R2_ACCOUNT_ID = "55d5377032a557d193bc05ccd42e26b9"
+R2_ACCESS_KEY = "5b0d83888d70ff33be88b40e9c63edcb"
+R2_SECRET_KEY = "6fb0e602ee34ed4675f9bf43468d8dd7f573bf87df0d12ca9d2b4a25efae5563"
+
 # Static assets (H5 文件)
 [assets]
 directory = "./"
