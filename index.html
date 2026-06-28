@@ -189,8 +189,8 @@ let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
 let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
 let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
-// 自动图床模式 — 默认关。Worker 中转在你网络下不稳定,手动 URL 模式最稳
-let cfg_imageHostEnabled = false;
+// 自动图床模式 — VPN 全局后应该能 work,默认开
+let cfg_imageHostEnabled = true;
 
 // ============ URL 模式切换 ============
 function toggleUrlMode(idx){
