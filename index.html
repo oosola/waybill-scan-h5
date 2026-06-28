@@ -305,15 +305,9 @@ $('testConfigBtn').onclick = async () => {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.apiKey },
       body: JSON.stringify({
         model: cfg.model,
-        // 用 1x1 透明 PNG + 文字,兼容所有视觉模型(智谱 GLM-4V/Qwen-VL/gpt-4o/gemini 等)
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: '这张图是什么颜色?只回一个词。' },
-            { type: 'image_url', image_url: { url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=' } }
-          ]
-        }],
-        max_tokens: 20
+        // 只发纯文字(1x1 透明 PNG 智谱 GLM-4V 无法解析,会抛"图片输入格式/解析错误")
+        messages: [{ role: 'user', content: '回一个词:OK' }],
+        max_tokens: 10
       })
     });
     const j = await res.json().catch(() => ({}));
