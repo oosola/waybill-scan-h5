@@ -68,28 +68,44 @@
   .badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:500}
   .badge.省内{background:#d1fae5;color:#065f46}
   .badge.省外{background:#fee2e2;color:#991b1b}
-  /* 横屏全屏表格模式 */
+  /* 横屏表格模式:整体旋转 90 度,让用户旋转手机看 */
   body.landscape-table #tableWrap{
-    position:fixed !important; inset:0; z-index:9999;
+    position:fixed !important;
+    /* 旋转 90 度需要 swap 宽高 */
+    top:50% !important; left:50% !important;
+    width:100vh !important; height:100vw !important;
+    margin-left:-50vh !important; margin-top:-50vw !important;
+    transform:rotate(90deg);
+    transform-origin:center center;
     background:var(--bg);
+    z-index:9999;
     padding:16px;
     overflow:auto;
   }
   body.landscape-table #tableWrap .table-scroll{
-    max-height:calc(100vh - 100px);
+    max-height:calc(100vw - 100px);
+    max-width:calc(100vh - 32px);
   }
   body.landscape-table #tableWrap table{
-    font-size:15px;
+    font-size:14px;
   }
   body.landscape-table #tableWrap th,
   body.landscape-table #tableWrap td{
-    padding:10px 14px;
+    padding:8px 12px;
     white-space:nowrap;
   }
+  body.landscape-table #landscapeBtn{display:none !important}
   body.landscape-table .exit-fullscreen-btn{
-    position:fixed !important;top:12px !important;right:12px !important;z-index:10000;
+    position:fixed !important;
+    top:50% !important; left:50% !important;
+    margin-top:-50vw !important; margin-left:calc(50vh - 80px) !important;
+    transform:rotate(90deg);
+    transform-origin:center center;
+    z-index:10000;
     padding:8px 14px;
   }
+  /* 横屏模式下隐藏其他 card */
+  body.landscape-table .card:not(:has(#tableWrap)){display:none !important}
 
   @media (max-width:600px){
     .picker{grid-template-columns:1fr 1fr;gap:8px}
@@ -179,7 +195,7 @@
     <div id="tableWrap">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h2 style="margin:0">③ 已记录 (<span id="countInline">0</span>)</h2>
-      <button class="secondary" id="landscapeBtn" style="font-size:13px">📺 横屏全屏查看</button>
+      <button class="secondary" id="landscapeBtn" style="font-size:13px">📺 旋转横屏查看</button>
     </div>
     <div class="table-scroll">
       <table id="table">
