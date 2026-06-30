@@ -39,6 +39,11 @@ export default {
       return handleGetImage(request, env, url);
     }
 
+    // DELETE /image/<key>  -> 从 R2 删除 object (供图床历史页面删除用)
+    if (url.pathname.startsWith('/image/') && request.method === 'DELETE') {
+      return handleDeleteImage(request, env, url);
+    }
+
     if (url.pathname === '/list' && request.method === 'GET') {
       return listObjects(env);
     }
@@ -198,16 +203,30 @@ async function handleGetImage(request, env, url) {
 async function listObjects(env) {
   if (!env.WAYBILL_IMAGES) return json({ error: 'R2 not bound' }, 500);
   try {
-    const list = await env.WAYBILL_IMAGES.list({ limit: 20, prefix: 'waybills/' });
-    const items = list.objects.slice(-20).reverse().map((o) => ({
+    const list = await env.WAYBILL_IMAGES.list({ limit: 50, prefix: 'waybills/' });
+    const items = list.objects.slice(-50).reverse().map((o) => ({
       key: o.key,
       size: o.size,
-      uploaded: o.uploaded,
-      url: `https://waybill-scan-h5.liuyongning137.workers.dev/image/${o.key}`,
+      ts: o.uploaded ? new Date(o.uploaded).getTime() : Date.now(),
+      url: `https://pub-db13d5896aa74f90916123b3697a4b47.r2.dev/${o.key}`,
+      source: 'r2-dev-public',
     }));
     return json({ count: items.length, items });
   } catch (e) {
     return json({ error: 'list failed: ' + e.message }, 500);
+  }
+}
+
+async function handleDeleteImage(request, env, url) {
+  if (!env.WAYBILL_IMAGES) {
+    return json({ error: 'R2 not bound' }, 500);
+  }
+  const key = decodeURIComponent(url.pathname.slice('/image/'.length));
+  try {
+    await env.WAYBILL_IMAGES.delete(key);
+    return json({ ok: true, key });
+  } catch (e) {
+    return json({ error: 'delete failed: ' + e.message }, 500);
   }
 }
 
