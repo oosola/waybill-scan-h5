@@ -159,6 +159,7 @@
         <thead>
           <tr>
             <th>扫描日期</th>
+            <th>解析时间</th>
             <th>快递公司</th>
             <th>品名</th>
             <th>首张面单号(序号小)</th>
@@ -560,12 +561,15 @@ async function callAI(){
 }
 
 function parseResultToRow(r){
-  const today = new Date().toISOString().slice(0,10);
+  const now = new Date();
+  const today = now.toISOString().slice(0,10);
+  const parsedAt = now.toLocaleString('zh-CN', { hour12: false });
   const inJiangxi = (r.receiver_province || '').includes('江西');
   const region = inJiangxi ? '省内' : '省外';
   const fmt = (o) => o && o.tracking ? `${o.tracking}${o.serial ? ' ('+o.serial+')' : ''}` : '—';
   return {
     date: today,
+    parsed_at: parsedAt,
     carrier: r.carrier || '未识别',
     product: r.product || '未识别',
     first: fmt(r.first),
@@ -670,11 +674,12 @@ function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
 function render(){
   const tbody = $('tbody');
   if (!records.length){
-    tbody.innerHTML = '<tr><td colspan="8" class="empty">还没有记录。选两张面单图开始 ↓</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">还没有记录。选两张面单图开始 ↓</td></tr>';
   } else {
     tbody.innerHTML = records.map((r,i) => `
       <tr>
         <td>${esc(r.date)}</td>
+        <td>${esc(r.parsed_at || '')}</td>
         <td>${esc(r.carrier)}</td>
         <td>${esc(r.product)}</td>
         <td class="num">${esc(r.first)}</td>
@@ -702,8 +707,8 @@ $('tbody').addEventListener('click', (e) => {
 // ============ 导出 / 复制 ============
 $('exportCsvBtn').onclick = () => {
   if (!records.length){ toast('还没有记录'); return; }
-  const headers = ['扫描日期','快递公司','品名','首张面单号(序号小)','末张面单号(序号大)','总数','省内/省外'];
-  const rows = records.map(r => [r.date,r.carrier,r.product,r.first,r.last,r.total,r.region]);
+  const headers = ['扫描日期','解析时间','快递公司','品名','首张面单号(序号小)','末张面单号(序号大)','总数','省内/省外'];
+  const rows = records.map(r => [r.date,r.parsed_at,r.carrier,r.product,r.first,r.last,r.total,r.region]);
   const csv = [headers, ...rows].map(row => row.map(c => {
     const s = String(c ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
@@ -720,9 +725,9 @@ $('exportCsvBtn').onclick = () => {
 $('copyBtn').onclick = async () => {
   if (!records.length){ toast('还没有记录'); return; }
   const md = [
-    '| 扫描日期 | 快递公司 | 品名 | 首张面单号(序号小) | 末张面单号(序号大) | 总数 | 省内/省外 |',
-    '|---|---|---|---|---|---|---|',
-    ...records.map(r => `| ${r.date} | ${r.carrier} | ${r.product} | ${r.first} | ${r.last} | ${r.total} | ${r.region} |`)
+    '| 扫描日期 | 解析时间 | 快递公司 | 品名 | 首张面单号(序号小) | 末张面单号(序号大) | 总数 | 省内/省外 |',
+    '|---|---|---|---|---|---|---|---|',
+    ...records.map(r => `| ${r.date} | ${r.parsed_at || ''} | ${r.carrier} | ${r.product} | ${r.first} | ${r.last} | ${r.total} | ${r.region} |`)
   ].join('\n');
   try {
     await navigator.clipboard.writeText(md);
