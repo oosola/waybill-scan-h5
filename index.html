@@ -70,13 +70,13 @@
   .badge.省外{background:#fee2e2;color:#991b1b}
   /* 横屏全屏表格模式 */
   body.landscape-table #tableWrap{
-    position:fixed;inset:0;z-index:9999;
+    position:fixed !important; inset:0; z-index:9999;
     background:var(--bg);
     padding:16px;
     overflow:auto;
   }
   body.landscape-table #tableWrap .table-scroll{
-    max-height:calc(100vh - 80px);
+    max-height:calc(100vh - 100px);
   }
   body.landscape-table #tableWrap table{
     font-size:15px;
@@ -84,10 +84,10 @@
   body.landscape-table #tableWrap th,
   body.landscape-table #tableWrap td{
     padding:10px 14px;
+    white-space:nowrap;
   }
-  body.landscape-table > .wrap > *:not(#tableWrap){display:none !important}
   body.landscape-table .exit-fullscreen-btn{
-    position:fixed;top:10px;right:10px;z-index:10000;
+    position:fixed !important;top:12px !important;right:12px !important;z-index:10000;
     padding:8px 14px;
   }
 
@@ -428,19 +428,28 @@ $('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
 
 // ============ 横屏全屏查看表格 ============
 $('landscapeBtn').onclick = () => {
+  enterLandscape();
+};
+function enterLandscape(){
+  // 隐藏除 tableWrap 所在 card 之外的所有 card
+  document.querySelectorAll('.card').forEach(c => {
+    if (!c.querySelector('#tableWrap')) c.style.display = 'none';
+  });
   document.body.classList.add('landscape-table');
-  // 加一个退出按钮
+  // 加退出按钮
   if (!document.getElementById('exitLandscapeBtn')) {
     const exit = document.createElement('button');
     exit.id = 'exitLandscapeBtn';
     exit.className = 'secondary exit-fullscreen-btn';
-    exit.textContent = '✕ 退出横屏';
+    exit.textContent = '✕ 退出';
     exit.onclick = exitLandscape;
     document.body.appendChild(exit);
   }
-};
+}
 function exitLandscape(){
   document.body.classList.remove('landscape-table');
+  // 恢复所有 card 显示
+  document.querySelectorAll('.card').forEach(c => c.style.display = '');
   const btn = document.getElementById('exitLandscapeBtn');
   if (btn) btn.remove();
 }
