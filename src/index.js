@@ -48,9 +48,12 @@ export default {
       return listObjects(env);
     }
 
-    // 别名:/history 也走 listObjects (兼容 H5 默认调用)
+    // 别名:/history GET 走 listObjects, DELETE 清空所有
     if (url.pathname === '/history' && request.method === 'GET') {
       return listObjects(env);
+    }
+    if (url.pathname === '/history' && request.method === 'DELETE') {
+      return handleDeleteAll(env);
     }
 
     // 默认 serve static assets
@@ -227,6 +230,36 @@ async function handleDeleteImage(request, env, url) {
     return json({ ok: true, key });
   } catch (e) {
     return json({ error: 'delete failed: ' + e.message }, 500);
+  }
+}
+
+async function handleDeleteAll(env) {
+  if (!env.WAYBILL_IMAGES) {
+    return json({ error: 'R2 not bound' }, 500);
+  }
+  try {
+    // R2 没有批量删除 API,只能 list + 逐个 delete
+    const list = await env.WAYBILL_IMAGES.list({ prefix: 'waybills/' });
+    let deleted = 0;
+    let failed = 0;
+    // 并发删除 (一次最多 10 个并发,避免 Worker 超时)
+    const keys = list.objects.map(o => o.key);
+    const chunks = [];
+    for (let i = 0; i < keys.length; i += 10) {
+      chunks.push(keys.slice(i, i + 10));
+    }
+    for (const chunk of chunks) {
+      const results = await Promise.allSettled(
+        chunk.map(k => env.WAYBILL_IMAGES.delete(k))
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') deleted++;
+        else failed++;
+      }
+    }
+    return json({ ok: true, deleted, failed, total: keys.length });
+  } catch (e) {
+    return json({ error: 'delete all failed: ' + e.message }, 500);
   }
 }
 
