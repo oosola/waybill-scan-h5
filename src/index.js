@@ -84,9 +84,9 @@ async function handleUpload(request, env) {
       httpMetadata: { contentType: file.type || 'image/jpeg' },
     });
 
-    // 策略:直接返回 R2.dev public URL (需要 Dashboard 启用 R2 Public Development URL)
-    // 这样智谱服务器 fetch 这个 URL,绕过 worker.dev GFW 拦截
-    const r2DevUrl = `https://pub-waybill-images.r2.dev/${key}`;
+// 策略:直接返回 R2.dev public URL (Dashboard 已启用 Public Development URL)
+    // 实际 R2.dev subdomain 是 Cloudflare 随机分配的 (pub-<random>.r2.dev)
+    const r2DevUrl = `https://pub-db13d5896aa74f90916123b3697a4b47.r2.dev/${key}`;
     return json({ url: r2DevUrl, source: 'r2-dev-public', key });
   } catch (e) {
     return json({ error: 'handler error: ' + (e.message || String(e)) }, 500);
