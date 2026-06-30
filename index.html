@@ -27,10 +27,6 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
   .card h2{margin:0 0 12px;font-size:15px;font-weight:600}
   .picker{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .url-row{grid-column:1/-1;display:flex;flex-direction:column;gap:6px;margin:-4px 0 0 0}
-  .url-row.hidden{display:none}
-  .link-btn{background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:4px 0;text-align:left;text-decoration:underline}
-  .url-input{width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;box-sizing:border-box}
   .history-list{max-height:400px;overflow-y:auto;font-size:12px}
   .history-item{padding:6px 8px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px}
   .history-item a{color:var(--accent);text-decoration:none;word-break:break-all;flex:1;font-family:monospace}
@@ -156,21 +152,11 @@
         <span class="label">第 1 张</span>
         <span class="placeholder">点击拍照/选图</span>
       </label>
-      <div class="url-row" id="urlRow0">
-        <button class="link-btn" type="button" onclick="toggleUrlMode(0)">📋 改用图片 URL</button>
-        <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url0" hidden>
-        <button class="link-btn" type="button" onclick="window.open('https://sm.ms', '_blank')" hidden id="openSm0">📱 打开 sm.ms 上传</button>
-      </div>
       <label class="slot" id="slot1">
         <input type="file" accept="image/*" hidden id="file1">
         <span class="label">第 2 张</span>
         <span class="placeholder">点击拍照/选图</span>
       </label>
-      <div class="url-row" id="urlRow1">
-        <button class="link-btn" type="button" onclick="toggleUrlMode(1)">📋 改用图片 URL</button>
-        <input class="url-input" type="url" placeholder="https://... 从图床复制" id="url1" hidden>
-        <button class="link-btn" type="button" onclick="window.open('https://sm.ms', '_blank')" hidden id="openSm1">📱 打开 sm.ms 上传</button>
-      </div>
     </div>
     <div class="actions">
       <input type="file" accept="image/*" hidden id="fileBoth" multiple>
@@ -234,70 +220,13 @@ const STORAGE_KEY = 'waybill_records_v1';
 const CONFIG_KEY  = 'waybill_config_v1';
 let records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
 let images = [null, null]; // base64 dataURL
-let imageUrls = ['', ''];  // URL 模式下的图片 URL(直接给智谱,免图床中转)
-let imageMode = [0, 0];    // 0 = 上传(base64 自动转 URL),1 = URL 手动粘
 // 自动图床模式 — VPN 全局后应该能 work,默认开
 let cfg_imageHostEnabled = true;
 
-// ============ URL 模式切换 ============
-function toggleUrlMode(idx){
-  const row = $('urlRow'+idx);
-  const btn = row.querySelector('.link-btn');
-  const input = $('url'+idx);
-  const openSm = $('openSm'+idx);
-  if (imageMode[idx] === 0){
-    // 切到 URL 模式:显示输入框
-    imageMode[idx] = 1;
-    images[idx] = null;
-    input.hidden = false;
-    openSm.hidden = false;
-    row.classList.remove('hidden');
-    btn.textContent = '↩️ 改回上传';
-    input.oninput = () => {
-      imageUrls[idx] = input.value.trim();
-      if (imageUrls[idx]) showUrlPreview(idx, imageUrls[idx]);
-      updateParseBtn();
-    };
-    input.focus();
-  } else {
-    // 切回上传模式
-    imageMode[idx] = 0;
-    imageUrls[idx] = '';
-    input.hidden = true;
-    openSm.hidden = true;
-    input.value = '';
-    btn.textContent = '📋 改用图片 URL';
-    clearSlot(idx);
-  }
-  updateParseBtn();
-}
-function showUrlPreview(idx, url){
-  const slot = $('slot'+idx);
-  slot.classList.add('has-image');
-  let img = slot.querySelector('img');
-  let lbl = slot.querySelector('.label');
-  if (!img){
-    img = document.createElement('img');
-    slot.insertBefore(img, lbl.nextSibling);
-  }
-  img.src = url;
-  let ph = slot.querySelector('.placeholder');
-  if (ph) ph.style.display = 'none';
-  // 加 X 删除按钮
-  let rm = slot.querySelector('.remove');
-  if (!rm){
-    rm = document.createElement('button');
-    rm.className = 'remove';
-    rm.textContent = '×';
-    rm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); clearSlot(idx); };
-    slot.appendChild(rm);
-  }
-}
 function updateParseBtn(){
-  const ready = (imageMode[0] === 1 ? imageUrls[0] : images[0]) &&
-                (imageMode[1] === 1 ? imageUrls[1] : images[1]);
+  const ready = images[0] && images[1];
   $('parseBtn').disabled = !ready;
-  console.log('[parseBtn]', 'ready=', !!ready, 'images[0]=', !!images[0], 'images[1]=', !!images[1], 'mode=', imageMode);
+  console.log('[parseBtn]', 'ready=', !!ready, 'images[0]=', !!images[0], 'images[1]=', !!images[1]);
 }
 
 // ============ DOM ============
@@ -379,8 +308,6 @@ $('testConfigBtn').onclick = async () => {
 // ============ 图片选择(简化版) ============
 function loadFileToSlot(idx, f){
   if (!f) return;
-  // 如果该 slot 之前在 URL 模式,切回 upload 模式
-  if (imageMode[idx] === 1) toggleUrlMode(idx);
   const slot = $('slot'+idx);
   const reader = new FileReader();
   reader.onload = (ev) => {
@@ -426,8 +353,6 @@ $('fileBoth').addEventListener('change', (e) => {
 });
 function clearSlot(idx){
   images[idx] = null;
-  imageUrls[idx] = '';
-  const input = $('url'+idx); if (input) input.value = '';
   const slot = $('slot'+idx);
   slot.classList.remove('has-image');
   const img = slot.querySelector('img'); if (img) img.remove();
@@ -567,9 +492,6 @@ async function uploadToImageHost(base64DataUrl, idx){
 }
 
 async function getImageSource(idx){
-  if (imageMode[idx] === 1) {
-    return imageUrls[idx];
-  }
   if (cfg_imageHostEnabled) {
     try {
       const url = await uploadToImageHost(images[idx], idx);
@@ -577,7 +499,7 @@ async function getImageSource(idx){
       return url;
     } catch (e) {
       console.error('图床中转失败:', e);
-      throw new Error('图床中转失败: ' + (e.message || e) + '\n👉 可点 📋 改用图片 URL 模式手动填 URL');
+      throw new Error('图床中转失败: ' + (e.message || e) + '\n👉 重试一次,或检查网络/VPN');
     }
   }
   return images[idx];
