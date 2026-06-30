@@ -201,19 +201,20 @@
       <table id="table">
         <thead>
           <tr>
-            <th>扫描日期</th>
             <th>解析时间</th>
+            <th>扫描日期</th>
             <th>快递公司</th>
             <th>品名</th>
             <th>首张面单号(序号小)</th>
             <th>末张面单号(序号大)</th>
-            <th>总数</th>
+            <th>件数</th>
             <th>省内/省外</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody id="tbody">
         </tbody>
+        <tfoot id="tfoot"></tfoot>
       </table>
     </div>
     <div class="actions">
@@ -738,13 +739,15 @@ $('parseBtn').onclick = async () => {
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
 function render(){
   const tbody = $('tbody');
+  const tfoot = $('tfoot');
   if (!records.length){
     tbody.innerHTML = '<tr><td colspan="9" class="empty">还没有记录。选两张面单图开始 ↓</td></tr>';
+    tfoot.innerHTML = '';
   } else {
     tbody.innerHTML = records.map((r,i) => `
       <tr>
-        <td>${esc(r.date)}</td>
         <td>${esc(r.parsed_at || '')}</td>
+        <td>${esc(r.date)}</td>
         <td>${esc(r.carrier)}</td>
         <td>${esc(r.product)}</td>
         <td class="num">${esc(r.first)}</td>
@@ -754,6 +757,22 @@ function render(){
         <td><button class="danger" style="padding:4px 8px;font-size:12px" data-i="${i}">删</button></td>
       </tr>
     `).join('');
+    // 汇总:total 之和
+    const totalCount = records.length;
+    const totalItems = records.reduce((sum, r) => {
+      const n = parseInt(String(r.total).replace(/[^\d]/g, ''), 10);
+      return sum + (isNaN(n) ? 0 : n);
+    }, 0);
+    const inJiangxi = records.filter(r => r.region === '省内').length;
+    const outJiangxi = records.filter(r => r.region === '省外').length;
+    tfoot.innerHTML = `
+      <tr style="background:#f5f5f5;font-weight:600">
+        <td colspan="6" style="text-align:right;padding:10px">汇总</td>
+        <td style="padding:10px;color:#c00">${totalItems}</td>
+        <td style="padding:10px;font-size:12px">省内 ${inJiangxi} / 省外 ${outJiangxi}</td>
+        <td style="padding:10px">${totalCount} 条</td>
+      </tr>
+    `;
   }
   $('count').textContent = `已记录 ${records.length} 条`;
   $('countInline').textContent = records.length;
@@ -772,8 +791,8 @@ $('tbody').addEventListener('click', (e) => {
 // ============ 导出 / 复制 ============
 $('exportCsvBtn').onclick = () => {
   if (!records.length){ toast('还没有记录'); return; }
-  const headers = ['扫描日期','解析时间','快递公司','品名','首张面单号(序号小)','末张面单号(序号大)','总数','省内/省外'];
-  const rows = records.map(r => [r.date,r.parsed_at,r.carrier,r.product,r.first,r.last,r.total,r.region]);
+  const headers = ['解析时间','扫描日期','快递公司','品名','首张面单号(序号小)','末张面单号(序号大)','件数','省内/省外'];
+  const rows = records.map(r => [r.parsed_at || '',r.date,r.carrier,r.product,r.first,r.last,r.total,r.region]);
   const csv = [headers, ...rows].map(row => row.map(c => {
     const s = String(c ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
@@ -790,9 +809,9 @@ $('exportCsvBtn').onclick = () => {
 $('copyBtn').onclick = async () => {
   if (!records.length){ toast('还没有记录'); return; }
   const md = [
-    '| 扫描日期 | 解析时间 | 快递公司 | 品名 | 首张面单号(序号小) | 末张面单号(序号大) | 总数 | 省内/省外 |',
+    '| 解析时间 | 扫描日期 | 快递公司 | 品名 | 首张面单号(序号小) | 末张面单号(序号大) | 件数 | 省内/省外 |',
     '|---|---|---|---|---|---|---|---|',
-    ...records.map(r => `| ${r.date} | ${r.parsed_at || ''} | ${r.carrier} | ${r.product} | ${r.first} | ${r.last} | ${r.total} | ${r.region} |`)
+    ...records.map(r => `| ${r.parsed_at || ''} | ${r.date} | ${r.carrier} | ${r.product} | ${r.first} | ${r.last} | ${r.total} | ${r.region} |`)
   ].join('\n');
   try {
     await navigator.clipboard.writeText(md);
