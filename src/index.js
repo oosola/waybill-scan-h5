@@ -43,6 +43,11 @@ export default {
       return listObjects(env);
     }
 
+    // 别名:/history 也走 listObjects (兼容 H5 默认调用)
+    if (url.pathname === '/history' && request.method === 'GET') {
+      return listObjects(env);
+    }
+
     // 默认 serve static assets
     return env.ASSETS.fetch(request);
   },
