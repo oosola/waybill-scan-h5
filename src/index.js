@@ -84,37 +84,10 @@ async function handleUpload(request, env) {
       httpMetadata: { contentType: file.type || 'image/jpeg' },
     });
 
-    // 试三种 URL 来源 (按优先级):
-    // 1) R2.dev public URL (如果 Dashboard 启用了 R2 Public Development URL,智谱能 fetch)
-    // 2) R2 cloudflarestorage signed URL (worker 生成,绕过 worker.dev GFW)
-    // 3) Worker /image/{key} URL (兜底,用户浏览器能访问但智谱可能 fetch 不到)
-    let imageUrl, source;
+    // 策略:直接返回 R2.dev public URL (需要 Dashboard 启用 R2 Public Development URL)
+    // 这样智谱服务器 fetch 这个 URL,绕过 worker.dev GFW 拦截
     const r2DevUrl = `https://pub-waybill-images.r2.dev/${key}`;
-
-    // 先验证 R2.dev public URL 是否可用 (HEAD 请求 200 = 可用)
-    try {
-      const head = await fetch(r2DevUrl, { method: 'HEAD' });
-      if (head.ok) {
-        imageUrl = r2DevUrl;
-        source = 'r2-dev-public';
-      }
-    } catch (e) { /* R2.dev 没启用,fall through */ }
-
-    // 如果 R2.dev 不可用,生成 R2 signed URL (走 cloudflarestorage.com 域名)
-    if (!imageUrl && env.R2_ACCESS_KEY && env.R2_SECRET_KEY && env.R2_ACCOUNT_ID) {
-      try {
-        imageUrl = await generateSignedUrl(env, key);
-        source = 'r2-signed';
-      } catch (e) { /* 签名失败 */ }
-    }
-
-    // 最后兜底 worker /image URL
-    if (!imageUrl) {
-      imageUrl = `https://waybill-scan-h5.liuyongning137.workers.dev/image/${key}`;
-      source = 'worker-fallback';
-    }
-
-    return json({ url: imageUrl, source, key });
+    return json({ url: r2DevUrl, source: 'r2-dev-public', key });
   } catch (e) {
     return json({ error: 'handler error: ' + (e.message || String(e)) }, 500);
   }
