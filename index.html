@@ -395,6 +395,22 @@ $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
 // ============ 图床历史 ============
 $('historyBtn').onclick = loadHistory;
 $('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
+async function deleteHistoryItem(url, key){
+  if (!confirm('确认删除这张图?\n' + url.slice(0,60) + '...')) return;
+  // 从 URL 提取 path 部分作为 key (/image/<key>)
+  const m = url.match(/waybills\/[^/?]+/);
+  if (!m) { toast('无法解析图片 key'); return; }
+  try {
+    const res = await fetch(IMAGE_RELAY_URL.replace('/upload','/image/' + m[0]), {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    toast('已删除 ✓');
+    loadHistory(); // 重新加载
+  } catch (e) {
+    toast('删除失败: ' + e.message);
+  }
+}
 async function loadHistory(){
   $('historyCard').hidden = false;
   $('historyList').textContent = '加载中…';
@@ -408,11 +424,18 @@ async function loadHistory(){
     }
     $('historyList').innerHTML = j.items.map(it => {
       const time = new Date(it.ts).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const shortUrl = it.url.replace(/^https?:\/\//,'').slice(0,40);
+      const escapedUrl = it.url.replace(/'/g, "\\'");
       return `<div class="history-item">
-        <a href="${it.url}" target="_blank" rel="noopener">${it.url.replace(/^https?:\/\//,'').slice(0,50)}…</a>
+        <a href="${it.url}" target="_blank" rel="noopener">${shortUrl}…</a>
         <span class="meta">${it.source} · ${time}</span>
+        <button class="del-btn" data-url="${escapedUrl}" data-key="${it.key}" title="删除">×</button>
       </div>`;
     }).join('');
+    // 绑定删除按钮
+    $('historyList').querySelectorAll('.del-btn').forEach(btn => {
+      btn.onclick = () => deleteHistoryItem(btn.dataset.url, btn.dataset.key);
+    });
   } catch (e) {
     $('historyList').innerHTML = '<div style="color:#c00;padding:8px">加载失败:' + e.message + '</div>';
   }
