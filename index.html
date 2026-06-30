@@ -442,17 +442,11 @@ $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
 $('historyBtn').onclick = loadHistory;
 $('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
 
-// ============ 横屏全屏查看表格 ============
-$('landscapeBtn').onclick = () => {
-  enterLandscape();
-};
+// ============ 旋转横屏查看表格 ============
+// 点按钮 → 整个表格区 CSS 旋转 90 度 + toast 提示用户旋转手机
+$('landscapeBtn').onclick = enterLandscape;
 function enterLandscape(){
-  // 隐藏除 tableWrap 所在 card 之外的所有 card
-  document.querySelectorAll('.card').forEach(c => {
-    if (!c.querySelector('#tableWrap')) c.style.display = 'none';
-  });
   document.body.classList.add('landscape-table');
-  // 加退出按钮
   if (!document.getElementById('exitLandscapeBtn')) {
     const exit = document.createElement('button');
     exit.id = 'exitLandscapeBtn';
@@ -461,11 +455,10 @@ function enterLandscape(){
     exit.onclick = exitLandscape;
     document.body.appendChild(exit);
   }
+  toast('请旋转手机到横屏查看');
 }
 function exitLandscape(){
   document.body.classList.remove('landscape-table');
-  // 恢复所有 card 显示
-  document.querySelectorAll('.card').forEach(c => c.style.display = '');
   const btn = document.getElementById('exitLandscapeBtn');
   if (btn) btn.remove();
 }
