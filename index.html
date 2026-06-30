@@ -147,6 +147,7 @@
     <div class="muted" style="font-size:11px;margin-bottom:8px">记录过去 30 天上传到 catbox/sm.ms 的图片。点 URL 在新标签打开,然后到图床网页版删除。</div>
     <div id="historyList" class="history-list">加载中…</div>
     <div class="actions" style="margin-top:10px">
+      <button class="secondary danger" id="clearAllBtn" style="color:#c00;border-color:#c00">🗑 清空全部</button>
       <button class="secondary" id="closeHistoryBtn">关闭</button>
     </div>
   </div>
@@ -395,6 +396,21 @@ $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
 // ============ 图床历史 ============
 $('historyBtn').onclick = loadHistory;
 $('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
+$('clearAllBtn').onclick = async () => {
+  if (!confirm('确认清空所有图床记录?\n这会从 R2 删除所有 waybills/ 下的图片,且不可恢复!')) return;
+  $('clearAllBtn').disabled = true;
+  try {
+    const res = await fetch(IMAGE_RELAY_URL.replace('/upload','/history'), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    toast('已清空 ✓ 删了 ' + (j.deleted || 0) + ' 张');
+    loadHistory();
+  } catch (e) {
+    toast('清空失败: ' + e.message);
+  } finally {
+    $('clearAllBtn').disabled = false;
+  }
+};
 async function deleteHistoryItem(url, key){
   if (!confirm('确认删除这张图?\n' + url.slice(0,60) + '...')) return;
   // 从 URL 提取 path 部分作为 key (/image/<key>)
