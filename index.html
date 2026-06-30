@@ -68,6 +68,29 @@
   .badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:500}
   .badge.省内{background:#d1fae5;color:#065f46}
   .badge.省外{background:#fee2e2;color:#991b1b}
+  /* 横屏全屏表格模式 */
+  body.landscape-table #tableWrap{
+    position:fixed;inset:0;z-index:9999;
+    background:var(--bg);
+    padding:16px;
+    overflow:auto;
+  }
+  body.landscape-table #tableWrap .table-scroll{
+    max-height:calc(100vh - 80px);
+  }
+  body.landscape-table #tableWrap table{
+    font-size:15px;
+  }
+  body.landscape-table #tableWrap th,
+  body.landscape-table #tableWrap td{
+    padding:10px 14px;
+  }
+  body.landscape-table > .wrap > *:not(#tableWrap){display:none !important}
+  body.landscape-table .exit-fullscreen-btn{
+    position:fixed;top:10px;right:10px;z-index:10000;
+    padding:8px 14px;
+  }
+
   @media (max-width:600px){
     .picker{grid-template-columns:1fr 1fr;gap:8px}
     .wrap{padding:12px}
@@ -153,7 +176,11 @@
   </div>
 
   <div class="card">
-    <h2>③ 已记录(<span id="countInline">0</span>)</h2>
+    <div id="tableWrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2 style="margin:0">③ 已记录 (<span id="countInline">0</span>)</h2>
+      <button class="secondary" id="landscapeBtn" style="font-size:13px">📺 横屏全屏查看</button>
+    </div>
     <div class="table-scroll">
       <table id="table">
         <thead>
@@ -178,6 +205,7 @@
       <button class="secondary" id="copyBtn">📋 复制表格</button>
       <button class="danger" id="resetBtn">🗑️ 清空全部</button>
     </div>
+    </div><!-- /#tableWrap -->
   </div>
 </div>
 
@@ -397,6 +425,25 @@ $('clearImagesBtn').onclick = () => { clearSlot(0); clearSlot(1); };
 // ============ 图床历史 ============
 $('historyBtn').onclick = loadHistory;
 $('closeHistoryBtn').onclick = () => { $('historyCard').hidden = true; };
+
+// ============ 横屏全屏查看表格 ============
+$('landscapeBtn').onclick = () => {
+  document.body.classList.add('landscape-table');
+  // 加一个退出按钮
+  if (!document.getElementById('exitLandscapeBtn')) {
+    const exit = document.createElement('button');
+    exit.id = 'exitLandscapeBtn';
+    exit.className = 'secondary exit-fullscreen-btn';
+    exit.textContent = '✕ 退出横屏';
+    exit.onclick = exitLandscape;
+    document.body.appendChild(exit);
+  }
+};
+function exitLandscape(){
+  document.body.classList.remove('landscape-table');
+  const btn = document.getElementById('exitLandscapeBtn');
+  if (btn) btn.remove();
+}
 $('clearAllBtn').onclick = async () => {
   if (!confirm('确认清空所有图床记录?\n这会从 R2 删除所有 waybills/ 下的图片,且不可恢复!')) return;
   $('clearAllBtn').disabled = true;
